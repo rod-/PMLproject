@@ -5,29 +5,36 @@ author: "rod-"
 ---
 The WLE Dataset is part of a human activity recognition project with intention to automatically detect the quality of weight lifting exercises.  Special thanks to Velloso et al for graciously allowing us in the Practical Machine Learning course to use their project data.   
 
-```{r,warning=FALSE}
+```{r,warning=FALSE,eval=FALSE}
 #some setup that i don't want to have to actually do because it's slow
-#traindata<-read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
-#testdata<-read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+traindata<-read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+testdata<-read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
 #I also need to clean up these data : the testing set lacks a lot of columns so let's not train on them!
 testdata<-testdata[-grep("stdev|stddev|min|var|max|amplitude|skewness|kurtosis|avg",colnames(testdata))]
 traindata<-traindata[-grep("stdev|stddev|var|min|max|amplitude|skewness|kurtosis|avg",colnames(traindata))]
-
+training<-traindata
+classe<-traindata$classe
+training<-training[-c(1:7)]
 ```
 So we want to predict the classe variable from other stuff.  First off, let's just say that the data is organized about 10x better than it was the last time i took this course, so i'm able to get to the modeling without having to do an extreme amount of preprocessing. 
 
-However, there are still questions about modeling this as a time course - that's important, but .
-
-I also need to make sure that i have my data partitioned so that i can do out-of-sample estimates of accuracy.  This is why i choose to save 1 user to use as an out-of-sample estimator.  
-
-```{r}
-testing<-subset(traindata,user_name=="adelmo") # i do this to keep the time courses 'pure' and to hopefully reduce overfitting to individual users.
-training<-subset(traindata,user_name!="adelmo") #it is also important to clear out the bookkeeping columns.
+I also need to make sure that i have my data partitioned so that i can do out-of-sample estimates of accuracy.  Initially, i choose to save 1 user to use as an out-of-sample estimator.  This absolutely wrecked the predictions - they would never work on the seventh user.  This made it clear to me that this model is actually overfitting to the individual users and that it will not be effective in 'real world' settings with 'out of sample' users.  however, since i still wish to submit correct answers for the current dataset, i re-did my training and testing separation to in
+I also set the control parameters to do 5fold cross validation automatically.
+```{r,eval=FALSE}
+controlparm<-trainControl(method="cv",5)
+initialtestdata<-training[traindata$user_name=="adelmo",]  
+initialtraindata<-training[traindata$user_name!="adelmo",]
+prelimlame<-train(classe~.,data=initialtraindata,method="rf",trControl=controlparm,ntree=250)
+inTrain<-createDataPartition(training$classe,p=0.7,list=F)
+testData<-training[-inTrain,]
+trainData<-training[inTrain,]
 require(caret)
-prelim<-train(data=training[,c(8:60)],classe~.,method="qda") 
+prelim<-train(classe~.,data=trainData,method="rf",trControl=controlparm,ntree=250)
 ```
-Once i build a preliminary model, i test its accuracy with cross-validation using the new user.  
-
-```{r}
-confusionMatrix(data=predict(object = prelim,newdata = testing),reference = testing$classe)
+Once i build a preliminary model, i test its accuracy with cross-validation using the held-out data.  Turns out that the sensitivities and specificities from the below confusionmatrix are all 99% here, so i'm just going to say it's good to try it out for prediction on the final test data. 
+```{r,eval=FALSE}
+confusionMatrix(testData$classe,predict(prelim,testData))
+answers<-predict(prelim,testdata)#note that testData is different from testdata:  the former is 
+#the 30% set aside data, while the latter is the 20-sample set to be used for grading.
 ```
+Since the answers in the answers vector look reasonable (more or less randomly distributed, as would be expected of a 'test' set for a class), i submitted them using the requested script.  Although it was needlessly tedious, i got all 20 correct on the first try, so I accomplished my goals.    
