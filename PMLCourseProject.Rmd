@@ -1,0 +1,33 @@
+---
+title: "PMLCourseProject"
+output: html_document
+author: "rod-"
+---
+The WLE Dataset is part of a human activity recognition project with intention to automatically detect the quality of weight lifting exercises.  Special thanks to Velloso et al for graciously allowing us in the Practical Machine Learning course to use their project data.   
+
+```{r,warning=FALSE}
+#some setup that i don't want to have to actually do because it's slow
+#traindata<-read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+#testdata<-read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+#I also need to clean up these data : the testing set lacks a lot of columns so let's not train on them!
+testdata<-testdata[-grep("stdev|stddev|min|var|max|amplitude|skewness|kurtosis|avg",colnames(testdata))]
+traindata<-traindata[-grep("stdev|stddev|var|min|max|amplitude|skewness|kurtosis|avg",colnames(traindata))]
+
+```
+So we want to predict the classe variable from other stuff.  First off, let's just say that the data is organized about 10x better than it was the last time i took this course, so i'm able to get to the modeling without having to do an extreme amount of preprocessing. 
+
+However, there are still questions about modeling this as a time course - that's important, but .
+
+I also need to make sure that i have my data partitioned so that i can do out-of-sample estimates of accuracy.  This is why i choose to save 1 user to use as an out-of-sample estimator.  
+
+```{r}
+testing<-subset(traindata,user_name=="adelmo") # i do this to keep the time courses 'pure' and to hopefully reduce overfitting to individual users.
+training<-subset(traindata,user_name!="adelmo") #it is also important to clear out the bookkeeping columns.
+require(caret)
+prelim<-train(data=training[,c(8:60)],classe~.,method="qda") 
+```
+Once i build a preliminary model, i test its accuracy with cross-validation using the new user.  
+
+```{r}
+confusionMatrix(data=predict(object = prelim,newdata = testing),reference = testing$classe)
+```
